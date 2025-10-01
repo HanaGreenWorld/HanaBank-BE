@@ -1,0 +1,33 @@
+# JWT 설정
+jwt:
+  secret: ${JWT_SECRET:}
+  access-token-validity-in-minutes: 1440  # 24시간
+  refresh-token-validity-in-days: 30
+
+# Swagger 설정
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+    operations-sorter: method
+    tags-sorter: alpha
+    try-it-out-enabled: true
+  api-docs:
+    path: /v3/api-docs
+    enabled: true
+  show-actuator: true
+  use-management-port: false
+
+internal:
+  service:
+    secret: ${INTERNAL_SERVICE_SECRET}
+  auth:
+    header: ${INTERNAL_AUTH_HEADER}
+
+
+
+
+
+
+
+
