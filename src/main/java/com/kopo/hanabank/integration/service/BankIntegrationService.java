@@ -18,6 +18,9 @@ import com.kopo.hanabank.savings.repository.SavingsAccountRepository;
 import com.kopo.hanabank.savings.service.SavingsService;
 import com.kopo.hanabank.user.domain.User;
 import com.kopo.hanabank.user.repository.UserRepository;
+import java.util.Base64;
+import com.kopo.hanabank.electronicreceipt.repository.ElectronicReceiptRepository;
+import com.kopo.hanabank.electronicreceipt.domain.ElectronicReceipt;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -27,9 +30,11 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -43,64 +48,17 @@ public class BankIntegrationService {
     private final LoanAccountRepository loanAccountRepository;
     private final InvestmentAccountRepository investmentAccountRepository;
     private final SavingsService savingsService;
+    private final ElectronicReceiptRepository electronicReceiptRepository;
 
-    /**
-     * 고객 정보 조회 (그룹 토큰으로)
-     */
-    public BankCustomerInfoResponse getCustomerInfoByGroupToken(String groupCustomerToken, String infoType) {
+
+    public BankCustomerInfoResponse getCustomerInfo(String customerInfoToken, String requestingService) {
         try {
-            log.info("고객 정보 조회 시작 - 그룹토큰: {}, 정보타입: {}", groupCustomerToken, infoType);
-            
-            // 토큰에서 전화번호 추출
-            String phoneNumber = extractPhoneFromGroupToken(groupCustomerToken);
-            log.info("추출된 전화번호: {}", phoneNumber);
-            
-            // 사용자 조회
-            User user = userRepository.findByPhoneNumber(phoneNumber)
-                    .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
-            
-            // 계좌 정보 조회
-            List<BankCustomerInfoResponse.AccountInfo> accounts = getAccountInfo(user);
-            
-            // 상품 정보 조회
-            List<BankCustomerInfoResponse.ProductInfo> products = getProductInfo(user);
-            
-            // 응답 생성
-            BankCustomerInfoResponse response = BankCustomerInfoResponse.builder()
-                    .customerId(user.getId())
-                    .customerName(user.getName())
-                    .phoneNumber(user.getPhoneNumber())
-                    .email(user.getEmail())
-                    .customerGrade("VIP")
-                    .status("ACTIVE")
-                    .joinDate(user.getCreatedAt())
-                    .accounts(accounts)
-                    .products(products)
-                    .responseTime(LocalDateTime.now())
-                    .build();
-            
-            log.info("고객 정보 조회 완료: {}", response);
-            return response;
-            
-        } catch (Exception e) {
-            log.error("고객 정보 조회 실패: {}", e.getMessage(), e);
-            throw new RuntimeException("고객 정보 조회에 실패했습니다: " + e.getMessage(), e);
-        }
-    }
+            log.info("고객 정보 조회 시작 - 고객정보토큰: {}, 요청서비스: {}", customerInfoToken, requestingService);
 
-    /**
-     * 고객 정보 조회
-     */
-    public BankCustomerInfoResponse getCustomerInfo(String groupCustomerToken, String requestingService) {
-        try {
-            log.info("고객 정보 조회 시작 - 그룹토큰: {}, 요청서비스: {}", groupCustomerToken, requestingService);
+            String ci = new String(Base64.getDecoder().decode(customerInfoToken));
+            log.info("추출된 CI: {}", ci);
 
-            // Group Customer Token에서 전화번호 추출
-            String phoneNumber = extractPhoneFromGroupToken(groupCustomerToken);
-            log.info("추출된 전화번호: {}", phoneNumber);
-
-            // 사용자 조회
-            User user = userRepository.findByPhoneNumber(phoneNumber)
+            User user = userRepository.findByCi(ci)
                     .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
 
             // 계좌 정보 조회
@@ -122,24 +80,17 @@ public class BankIntegrationService {
                     .build();
 
         } catch (Exception e) {
-            log.error("고객 정보 조회 실패: {}", e.getMessage(), e);
             throw new RuntimeException("고객 정보 조회에 실패했습니다: " + e.getMessage(), e);
         }
     }
 
-    /**
-     * 통합 금융 상품 조회
-     */
-    public IntegratedFinancialProductsResponse getIntegratedProducts(String groupCustomerToken, String requestingService) {
+    public IntegratedFinancialProductsResponse getIntegratedProducts(String customerInfoToken, String requestingService) {
         try {
-            log.info("통합 금융 상품 조회 시작 - 그룹토큰: {}, 요청서비스: {}", groupCustomerToken, requestingService);
+            log.info("통합 금융 상품 조회 시작 - 고객정보토큰: {}, 요청서비스: {}", customerInfoToken, requestingService);
 
-            // Group Customer Token에서 전화번호 추출
-            String phoneNumber = extractPhoneFromGroupToken(groupCustomerToken);
-            log.info("추출된 전화번호: {}", phoneNumber);
+            String ci = new String(Base64.getDecoder().decode(customerInfoToken));
 
-            // 사용자 조회
-            User user = userRepository.findByPhoneNumber(phoneNumber)
+            User user = userRepository.findByCi(ci)
                     .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
 
             // 각 상품별 정보 조회
@@ -157,17 +108,12 @@ public class BankIntegrationService {
                     .build();
 
         } catch (Exception e) {
-            log.error("통합 금융 상품 조회 실패: {}", e.getMessage(), e);
             throw new RuntimeException("통합 금융 상품 조회에 실패했습니다: " + e.getMessage(), e);
         }
     }
 
-    /**
-     * 상품 현황 조회
-     */
     public Map<String, Object> getProductStatus(String phoneNumber) {
         try {
-            // 사용자 조회
             User user = userRepository.findByPhoneNumber(phoneNumber)
                     .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
 
@@ -188,14 +134,10 @@ public class BankIntegrationService {
             return status;
 
         } catch (Exception e) {
-            log.error("상품 현황 조회 실패: {}", e.getMessage(), e);
             throw new RuntimeException("상품 현황 조회에 실패했습니다: " + e.getMessage(), e);
         }
     }
 
-    /**
-     * 입출금 및 적금 계좌 정보 조회
-     */
     private List<BankCustomerInfoResponse.AccountInfo> getAccountInfo(User user) {
         List<BankCustomerInfoResponse.AccountInfo> accounts = new ArrayList<>();
 
@@ -211,26 +153,9 @@ public class BankIntegrationService {
                         .status(account.getStatus().toString())
                         .build())
                 .collect(java.util.stream.Collectors.toList()));
-
-        // 적금 계좌 조회
-        List<SavingsAccount> savingsAccounts = savingsAccountRepository.findByUser(user);
-        accounts.addAll(savingsAccounts.stream()
-                .map(account -> BankCustomerInfoResponse.AccountInfo.builder()
-                        .accountNumber(account.getAccountNumber())
-                        .accountType("SAVINGS")
-                        .accountName(account.getProduct().getProductName())
-                        .balance(new BigDecimal(account.getBalance()))
-                        .openDate(account.getCreatedAt())
-                        .status(account.getStatus().toString())
-                        .build())
-                .collect(java.util.stream.Collectors.toList()));
-
         return accounts;
     }
 
-    /**
-     * 대출 상품 정보 조회 - 실제 DB 데이터 사용
-     */
     private List<BankCustomerInfoResponse.ProductInfo> getLoanProductsForCustomerInfo(User user) {
         List<LoanAccount> loanAccounts = loanAccountRepository.findByUser(user);
         return loanAccounts.stream()
@@ -251,32 +176,40 @@ public class BankIntegrationService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * 적금 상품 정보 조회 (고객 정보용)
-     */
     private List<BankCustomerInfoResponse.ProductInfo> getSavingsProductsForCustomerInfo(User user) {
-        List<SavingsAccount> savingsAccounts = savingsAccountRepository.findByUser(user);
-        return savingsAccounts.stream()
-                .map(account -> BankCustomerInfoResponse.ProductInfo.builder()
-                        .productId(account.getId())
-                        .productName(account.getProduct().getProductName())
-                        .productType("SAVINGS")
-                        .productCode(account.getAccountNumber())
-                        .amount(new BigDecimal(account.getBalance()))
-                        .interestRate(account.getFinalRate())
-                        .baseRate(account.getBaseRate())
-                        .preferentialRate(account.getPreferentialRate())
-                        .startDate(account.getStartDate().atStartOfDay())
-                        .maturityDate(account.getMaturityDate().atStartOfDay())
-                        .subscriptionDate(account.getCreatedAt())
-                        .status(account.getStatus().toString())
-                        .build())
-                .collect(Collectors.toList());
+        try {
+            List<SavingsAccount> savingsAccounts = savingsAccountRepository.findByUser(user);
+
+            return savingsAccounts.stream()
+                    .map(account -> {
+                        try {
+                            return BankCustomerInfoResponse.ProductInfo.builder()
+                                    .productId(account.getId())
+                                    .productName(account.getProduct() != null ? account.getProduct().getProductName() : "알 수 없음")
+                                    .productType("SAVINGS")
+                                    .productCode(account.getAccountNumber())
+                                    .amount(new BigDecimal(account.getBalance()))
+                                    .interestRate(account.getFinalRate())
+                                    .baseRate(account.getBaseRate())
+                                    .preferentialRate(account.getPreferentialRate())
+                                    .startDate(account.getStartDate().atStartOfDay())
+                                    .maturityDate(account.getMaturityDate().atStartOfDay())
+                                    .subscriptionDate(account.getCreatedAt())
+                                    .status(account.getStatus().toString())
+                                    .build();
+                        } catch (Exception e) {
+                            log.error("적금 계좌 처리 중 오류: {}", e.getMessage(), e);
+                            return null;
+                        }
+                    })
+                    .filter(product -> product != null)
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            log.error("적금 계좌 조회 중 오류: {}", e.getMessage(), e);
+            return new ArrayList<>();
+        }
     }
 
-    /**
-     * 투자 상품 정보 조회
-     */
     private List<BankCustomerInfoResponse.ProductInfo> getInvestmentProductsForCustomerInfo(User user) {
         List<InvestmentAccount> investmentAccounts = investmentAccountRepository.findByUser(user);
         return investmentAccounts.stream()
@@ -291,9 +224,6 @@ public class BankIntegrationService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * 적금 상품 조회
-     */
     private List<IntegratedFinancialProductsResponse.SavingsProduct> getSavingsProducts(User user) {
         List<SavingsAccount> savingsAccounts = savingsAccountRepository.findByUser(user);
         return savingsAccounts.stream()
@@ -309,9 +239,6 @@ public class BankIntegrationService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * 대출 상품 조회
-     */
     private List<IntegratedFinancialProductsResponse.LoanProduct> getLoanProducts(User user) {
         List<LoanAccount> loanAccounts = loanAccountRepository.findByUser(user);
         return loanAccounts.stream()
@@ -326,9 +253,6 @@ public class BankIntegrationService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * 투자 상품 조회
-     */
     private List<IntegratedFinancialProductsResponse.InvestmentProduct> getInvestmentProducts(User user) {
         List<InvestmentAccount> investmentAccounts = investmentAccountRepository.findByUser(user);
         return investmentAccounts.stream()
@@ -343,9 +267,6 @@ public class BankIntegrationService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * 상품 정보 조회
-     */
     private List<BankCustomerInfoResponse.ProductInfo> getProductInfo(User user) {
         List<BankCustomerInfoResponse.ProductInfo> allProducts = new ArrayList<>();
         allProducts.addAll(getSavingsProductsForCustomerInfo(user));
@@ -354,9 +275,6 @@ public class BankIntegrationService {
         return allProducts;
     }
 
-    /**
-     * 총 잔액 계산
-     */
     private BigDecimal calculateTotalBalance(User user) {
         List<SavingsAccount> savingsAccounts = savingsAccountRepository.findByUser(user);
         List<LoanAccount> loanAccounts = loanAccountRepository.findByUser(user);
@@ -377,55 +295,7 @@ public class BankIntegrationService {
         
         return totalSavings.add(totalInvestments).subtract(totalLoans);
     }
-    
-    /**
-     * Group Customer Token에서 전화번호 추출
-     */
-    private String extractPhoneFromGroupToken(String groupCustomerToken) {
-        try {
-            log.info("🔍 토큰에서 전화번호 추출 시작: {}", groupCustomerToken);
-            
-            // Base64 디코딩 시도
-            String decodedToken;
-            try {
-                decodedToken = new String(java.util.Base64.getDecoder().decode(groupCustomerToken));
-                log.info("🔍 Base64 디코딩 결과: {}", decodedToken);
-            } catch (Exception e) {
-                // Base64 디코딩 실패 시 원본 토큰 사용
-                decodedToken = groupCustomerToken;
-                log.info("🔍 Base64 디코딩 실패, 원본 토큰 사용: {}", decodedToken);
-            }
-            
-            // 토큰에서 전화번호 추출
-            String phoneNumber;
-            if (decodedToken != null && decodedToken.contains("_")) {
-                String[] parts = decodedToken.split("_");
-                if (parts.length > 1) {
-                    phoneNumber = parts[1];
-                    log.info("🔍 추출된 전화번호: {}", phoneNumber);
-                } else {
-                    phoneNumber = "01099999999"; // 기본값
-                    log.warn("🔍 토큰 파싱 실패, 기본값 사용: {}", phoneNumber);
-                }
-            } else {
-                phoneNumber = "01099999999"; // 기본값
-                log.warn("🔍 토큰 형식 오류, 기본값 사용: {}", phoneNumber);
-            }
-            
-            // 하이픈 제거하여 통일된 형식으로 반환
-            String finalPhoneNumber = phoneNumber.replaceAll("-", "");
-            log.info("🔍 최종 전화번호: {}", finalPhoneNumber);
-            return finalPhoneNumber;
-            
-        } catch (Exception e) {
-            log.error("🔍 토큰에서 전화번호 추출 실패", e);
-            return "01099999999"; // 기본값
-        }
-    }
 
-    /**
-     * 계좌번호 마스킹
-     */
     private String maskAccountNumber(String accountNumber) {
         if (accountNumber == null || accountNumber.length() < 8) {
             return accountNumber;
@@ -433,13 +303,8 @@ public class BankIntegrationService {
         return accountNumber.substring(0, 4) + "****" + accountNumber.substring(accountNumber.length() - 4);
     }
 
-    /**
-     * 계좌 잔액 조회
-     */
     public Object getAccountBalance(String phoneNumber) {
         try {
-            log.info("계좌 잔액 조회 시작 - 전화번호: {}", phoneNumber);
-            
             User user = userRepository.findByPhoneNumber(phoneNumber)
                     .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
             
@@ -453,50 +318,19 @@ public class BankIntegrationService {
             return Map.of("totalBalance", totalBalance, "accountCount", demandAccounts.size());
             
         } catch (Exception e) {
-            log.error("계좌 잔액 조회 실패: {}", e.getMessage(), e);
             throw new RuntimeException("계좌 잔액 조회에 실패했습니다: " + e.getMessage(), e);
         }
     }
 
-    /**
-     * 입출금 계좌 목록 조회
-     */
-    public List<DemandDepositAccountResponse> getDepositAccounts(String phoneNumber) {
+    public boolean checkProductOwnership(String customerInfoToken, Long productId) {
         try {
-            log.info("입출금 계좌 목록 조회 요청 - 전화번호: {}", phoneNumber);
+            String ci = new String(Base64.getDecoder().decode(customerInfoToken));
 
-            User user = userRepository.findByPhoneNumber(phoneNumber)
-                    .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
-
-            List<DemandDepositAccount> accounts = demandDepositAccountRepository.findActiveAccountsByUser(user);
-
-            return accounts.stream()
-                    .map(DemandDepositAccountResponse::from)
-                    .collect(java.util.stream.Collectors.toList());
-
-        } catch (Exception e) {
-            log.error("입출금 계좌 목록 조회 실패: {}", e.getMessage(), e);
-            throw new RuntimeException("입출금 계좌 목록 조회에 실패했습니다: " + e.getMessage(), e);
-        }
-    }
-
-    /**
-     * 특정 상품 보유 여부 확인
-     */
-    public boolean checkProductOwnership(String groupCustomerToken, Long productId) {
-        try {
-            log.info("상품 보유 여부 확인 - 그룹토큰: {}, 상품ID: {}", groupCustomerToken, productId);
-
-            // Group Customer Token에서 전화번호 추출
-            String phoneNumber = extractPhoneFromGroupToken(groupCustomerToken);
-            log.info("추출된 전화번호: {}", phoneNumber);
-
-            // 사용자 조회
-            User user = userRepository.findByPhoneNumber(phoneNumber)
+            User user = userRepository.findByCi(ci)
                     .orElse(null);
 
             if (user == null) {
-                log.warn("사용자를 찾을 수 없음 - 전화번호: {}", phoneNumber);
+                log.warn("사용자를 찾을 수 없음 - CI: {}", ci);
                 return false;
             }
 
@@ -525,14 +359,12 @@ public class BankIntegrationService {
         }
     }
 
-    // 요청 DTO 클래스
     public static class SavingsAccountCreateRequest {
         private Long userId;
         private Long productId;
         private BigDecimal preferentialRate;
         private Long applicationAmount;
 
-        // 생성자, getter, setter
         public SavingsAccountCreateRequest() {}
 
         public SavingsAccountCreateRequest(Long userId, Long productId, BigDecimal preferentialRate, Long applicationAmount) {
@@ -552,21 +384,15 @@ public class BankIntegrationService {
         public void setApplicationAmount(Long applicationAmount) { this.applicationAmount = applicationAmount; }
     }
 
-    /**
-     * 토큰으로 적금 계좌 생성 (자동이체 설정 포함)
-     */
     @Transactional
-    public SavingsAccountResponse createSavingsAccountByToken(Long productId, BigDecimal preferentialRate, Long applicationAmount, String phoneNumber,
+    public SavingsAccountResponse createSavingsAccountByToken(Long productId, BigDecimal preferentialRate, Long applicationAmount, String ci,
                                                            Boolean autoTransferEnabled, Integer transferDay, Long monthlyTransferAmount,
                                                            String withdrawalAccountNumber, String withdrawalBankName) {
         try {
-            log.info("토큰으로 적금 계좌 생성 시작 - 상품ID: {}, 전화번호: {}, 자동이체: {}", productId, phoneNumber, autoTransferEnabled);
-            
-            User user = userRepository.findByPhoneNumber(phoneNumber)
+            User user = userRepository.findByCi(ci)
                     .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
             
             // 적금 계좌 생성 (자동이체 설정 포함)
-            // 사용자가 선택한 출금계좌 정보를 그대로 사용
             SavingsAccount account = savingsService.createSavingsAccountWithAutoTransfer(
                     user.getId(),
                     productId,
@@ -578,13 +404,78 @@ public class BankIntegrationService {
                     withdrawalAccountNumber,
                     withdrawalBankName
             );
-            
-            log.info("토큰으로 적금 계좌 생성 완료 - 계좌번호: {}, 자동이체: {}", account.getAccountNumber(), autoTransferEnabled);
+
             return new SavingsAccountResponse(account);
             
         } catch (Exception e) {
             log.error("토큰으로 적금 계좌 생성 실패: {}", e.getMessage(), e);
             throw new RuntimeException("적금 계좌 생성에 실패했습니다: " + e.getMessage(), e);
+        }
+    }
+
+    public List<Map<String, Object>> getElectronicReceiptsByCI(String customerInfoToken) {
+        try {
+            String ci = new String(Base64.getDecoder().decode(customerInfoToken));
+
+            User user = userRepository.findByCi(ci)
+                    .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
+
+            List<ElectronicReceipt> receipts = electronicReceiptRepository
+                    .findByCustomerIdOrderByReceiptDateDesc(user.getId());
+
+            List<Map<String, Object>> result = receipts.stream()
+                    .map(this::convertToMap)
+                    .collect(Collectors.toList());
+
+            return result;
+            
+        } catch (Exception e) {
+            throw new RuntimeException("전자영수증 조회에 실패했습니다: " + e.getMessage(), e);
+        }
+    }
+
+    private Map<String, Object> convertToMap(ElectronicReceipt receipt) {
+        Map<String, Object> map = new HashMap<>();
+        map.put("receiptId", receipt.getReceiptId());
+        map.put("customerId", receipt.getCustomerId());
+        map.put("transactionId", receipt.getTransactionId());
+        map.put("transactionType", receipt.getTransactionType().name());
+        map.put("transactionAmount", receipt.getTransactionAmount());
+        map.put("branchName", receipt.getBranchName());
+        map.put("receiptDate", receipt.getReceiptDate());
+        map.put("isGreenWorldUser", receipt.getIsGreenWorldUser());
+        map.put("webhookSent", receipt.getWebhookSent());
+        map.put("webhookSentAt", receipt.getWebhookSentAt());
+        map.put("createdAt", receipt.getCreatedAt());
+        return map;
+    }
+
+    public List<Map<String, Object>> getDepositAccountsByCi(String ci) {
+        try {
+            User user = userRepository.findByCi(ci)
+                    .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
+
+            // 사용자의 입출금 계좌 조회
+            List<DemandDepositAccount> accounts = demandDepositAccountRepository.findByUser(user);
+
+            List<Map<String, Object>> accountList = new ArrayList<>();
+            for (DemandDepositAccount account : accounts) {
+                Map<String, Object> accountMap = new HashMap<>();
+                accountMap.put("accountNumber", account.getAccountNumber());
+                accountMap.put("accountName", account.getAccountName());
+                accountMap.put("balance", account.getBalance());
+                accountMap.put("accountType", account.getAccountType().name());
+                accountMap.put("isActive", account.getIsActive());
+                accountMap.put("openDate", account.getOpenDate());
+                accountMap.put("bankCode", account.getBankCode());
+                accountList.add(accountMap);
+            }
+
+            log.info("입출금 계좌 목록 조회 완료 - 계좌수: {}", accountList.size());
+            return accountList;
+
+        } catch (Exception e) {
+            throw new RuntimeException("입출금 계좌 목록 조회에 실패했습니다: " + e.getMessage(), e);
         }
     }
 

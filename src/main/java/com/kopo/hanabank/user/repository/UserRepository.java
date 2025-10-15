@@ -17,8 +17,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     
     Optional<User> findByCi(String ci);
     
-    Optional<User> findByGroupCustomerToken(String groupCustomerToken);
-    
     boolean existsByUsername(String username);
     
     boolean existsByEmail(String email);
@@ -26,8 +24,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     boolean existsByPhoneNumber(String phoneNumber);
     
     boolean existsByCi(String ci);
-    
-    boolean existsByGroupCustomerToken(String groupCustomerToken);
 }
 
 
