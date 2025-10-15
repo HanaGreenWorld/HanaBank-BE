@@ -1,6 +1,6 @@
 # JWT 설정
 jwt:
-  secret: ${JWT_SECRET:}
+  secret: ${JWT_SECRET}
   access-token-validity-in-minutes: 1440  # 24시간
   refresh-token-validity-in-days: 30
 
@@ -23,6 +23,17 @@ internal:
     secret: ${INTERNAL_SERVICE_SECRET}
   auth:
     header: ${INTERNAL_AUTH_HEADER}
+
+ci:
+  default:
+    token: ${CI_DEFAULT_TOKEN}
+
+# 하나그린세상 연동 설정
+integration:
+  green-world:
+    url: ${HANA_GREEN_WORLD_URL}
+
+
 
 
 

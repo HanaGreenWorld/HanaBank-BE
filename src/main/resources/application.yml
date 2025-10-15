@@ -15,15 +15,3 @@ spring:
 server:
   address: 0.0.0.0
   port: ${PORT:8082}  # hanabank는 8082 포트 사용
-
-
-
-
-
-
-
-
-
-
-
-
