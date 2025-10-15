@@ -27,9 +27,6 @@ public class DemandDepositAccountService {
     private final DemandDepositAccountRepository demandDepositAccountRepository;
     private final UserService userService;
 
-    /**
-     * 사용자 입출금 계좌 목록 조회
-     */
     public List<DemandDepositAccountResponse> getUserAccounts(Long userId) {
         User user = userService.getUserById(userId);
         List<DemandDepositAccount> accounts = demandDepositAccountRepository.findByUser(user);
@@ -39,9 +36,6 @@ public class DemandDepositAccountService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * 사용자의 활성 입출금 계좌 목록 조회
-     */
     public List<DemandDepositAccountResponse> getActiveUserAccounts(Long userId) {
         User user = userService.getUserById(userId);
         List<DemandDepositAccount> accounts = demandDepositAccountRepository.findActiveAccountsByUser(user);
@@ -51,9 +45,6 @@ public class DemandDepositAccountService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * 계좌번호로 계좌 조회
-     */
     public DemandDepositAccountResponse getAccountByNumber(String accountNumber) {
         DemandDepositAccount account = demandDepositAccountRepository.findByAccountNumber(accountNumber)
                 .orElseThrow(() -> new BusinessException(ErrorCode.DEMAND_DEPOSIT_ACCOUNT_NOT_FOUND));
@@ -61,9 +52,6 @@ public class DemandDepositAccountService {
         return DemandDepositAccountResponse.from(account);
     }
 
-    /**
-     * 입출금 계좌 생성
-     */
     @Transactional
     public DemandDepositAccountResponse createAccount(DemandDepositAccountCreateRequest request) {
         User user = userService.getUserById(request.getUserId());
@@ -93,9 +81,6 @@ public class DemandDepositAccountService {
         return DemandDepositAccountResponse.from(account);
     }
 
-    /**
-     * 입금
-     */
     @Transactional
     public DemandDepositAccountResponse deposit(String accountNumber, Long amount) {
         DemandDepositAccount account = demandDepositAccountRepository.findByAccountNumber(accountNumber)
@@ -113,9 +98,6 @@ public class DemandDepositAccountService {
         return DemandDepositAccountResponse.from(account);
     }
 
-    /**
-     * 출금
-     */
     @Transactional
     public DemandDepositAccountResponse withdraw(String accountNumber, Long amount) {
         DemandDepositAccount account = demandDepositAccountRepository.findByAccountNumber(accountNumber)
@@ -139,9 +121,6 @@ public class DemandDepositAccountService {
         }
     }
 
-    /**
-     * 계좌 해지
-     */
     @Transactional
     public void closeAccount(String accountNumber) {
         DemandDepositAccount account = demandDepositAccountRepository.findByAccountNumber(accountNumber)
@@ -153,9 +132,6 @@ public class DemandDepositAccountService {
         log.info("계좌 해지 완료 - 계좌번호: {}", accountNumber);
     }
 
-    /**
-     * 계좌번호 생성
-     */
     private String generateAccountNumber() {
         return "081" + System.currentTimeMillis() + UUID.randomUUID().toString().substring(0, 4).toUpperCase();
     }

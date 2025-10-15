@@ -16,7 +16,6 @@ public class UserResponse {
     private String address;
     private Boolean isActive;
     private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
 
     public UserResponse(User user) {
         this.id = user.getId();
@@ -28,7 +27,6 @@ public class UserResponse {
         this.address = user.getAddress();
         this.isActive = user.getIsActive();
         this.createdAt = user.getCreatedAt();
-        this.updatedAt = user.getModifiedAt();
     }
 }
 

@@ -53,10 +53,6 @@ public class SavingsService {
                 false, null, null, null, null);
     }
 
-    /**
-     * 자동이체 설정을 포함한 적금 계좌 생성 (기본 메서드)
-     * 실제 출금/입금 처리를 포함한 트랜잭션 처리
-     */
     @Transactional
     public SavingsAccount createSavingsAccountWithAutoTransfer(Long userId, Long productId,
                                                              BigDecimal preferentialRate, Long applicationAmount,
@@ -110,25 +106,25 @@ public class SavingsService {
         // 실제 출금/입금 처리
         if (applicationAmount > 0) { // Long 타입으로 비교
             try {
-                log.info("💰 실제 출금/입금 처리 시작 - 금액: {}원", applicationAmount);
+                log.info("실제 출금/입금 처리 시작 - 금액: {}원", applicationAmount);
                 
                 // 1. 출금 계좌에서 출금 (withdrawalAccountNumber가 있는 경우)
                 if (withdrawalAccountNumber != null && !withdrawalAccountNumber.isEmpty()) {
-                    log.info("💸 출금 계좌에서 출금 처리: {} -> {}원", withdrawalAccountNumber, applicationAmount);
+                    log.info("출금 계좌에서 출금 처리: {} -> {}원", withdrawalAccountNumber, applicationAmount);
                     demandDepositAccountService.withdraw(withdrawalAccountNumber, applicationAmount);
-                    log.info("✅ 출금 완료 - 계좌: {}, 금액: {}원", withdrawalAccountNumber, applicationAmount);
+                    log.info("출금 완료 - 계좌: {}, 금액: {}원", withdrawalAccountNumber, applicationAmount);
                 } else {
-                    log.warn("⚠️ 출금 계좌 정보가 없어 출금 처리를 건너뜁니다.");
+                    log.warn("출금 계좌 정보가 없어 출금 처리를 건너뜁니다.");
                 }
                 
                 // 2. 적금 계좌에 입금
-                log.info("💳 적금 계좌에 입금 처리: {} -> {}원", accountNumber, applicationAmount);
+                log.info("적금 계좌에 입금 처리: {} -> {}원", accountNumber, applicationAmount);
                 savedAccount = depositToSavings(accountNumber, applicationAmount);
                 
-                log.info("🎉 적금 가입 완료 - 계좌: {}, 최종 잔고: {}원", accountNumber, savedAccount.getBalance());
+                log.info("적금 가입 완료 - 계좌: {}, 최종 잔고: {}원", accountNumber, savedAccount.getBalance());
                 
             } catch (Exception e) {
-                log.error("❌ 적금 가입 중 출금/입금 처리 실패: {}", e.getMessage(), e);
+                log.error("적금 가입 중 출금/입금 처리 실패: {}", e.getMessage(), e);
                 throw new BusinessException(ErrorCode.SAVINGS_ACCOUNT_TRANSACTION_FAILED, 
                     "적금 가입 중 거래 처리에 실패했습니다: " + e.getMessage());
             }

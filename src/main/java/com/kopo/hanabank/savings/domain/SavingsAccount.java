@@ -65,7 +65,7 @@ public class SavingsAccount extends DateTimeEntity {
     private Boolean autoTransferEnabled = false;
 
     @Column(name = "transfer_day")
-    private Integer transferDay; // 매월 이체할 날짜 (1-31)
+    private Integer transferDay; // 매월 이체할 날짜
 
     @Column(name = "monthly_transfer_amount")
     private Long monthlyTransferAmount; // 월 이체 금액

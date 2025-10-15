@@ -24,22 +24,15 @@ public class AutoTransferSchedulerService {
     private final DemandDepositAccountRepository demandDepositAccountRepository;
     private final UserRepository userRepository;
 
-    /**
-     * 매일 오전 9시에 자동이체 스케줄러 실행
-     */
     @Scheduled(cron = "0 0 9 * * *")
     @Transactional
     public void processAutoTransfers() {
         LocalDate today = LocalDate.now();
         int todayDay = today.getDayOfMonth();
-        
-        log.info("자동이체 스케줄러 시작 - 날짜: {}, 오늘 날짜: {}", today, todayDay);
 
         // 오늘 자동이체해야 할 적금 계좌들 조회
         List<SavingsAccount> accountsToTransfer = savingsAccountRepository
                 .findByAutoTransferEnabledTrueAndTransferDay(todayDay);
-
-        log.info("자동이체 대상 계좌 수: {}", accountsToTransfer.size());
 
         for (SavingsAccount savingsAccount : accountsToTransfer) {
             try {
@@ -49,19 +42,10 @@ public class AutoTransferSchedulerService {
                     savingsAccount.getAccountNumber(), e.getMessage(), e);
             }
         }
-
-        log.info("자동이체 스케줄러 완료");
     }
 
-    /**
-     * 개별 자동이체 처리 (트랜잭션으로 처리)
-     */
     @Transactional
     public void processAutoTransfer(SavingsAccount savingsAccount) {
-        log.info("자동이체 처리 시작 - 계좌번호: {}, 이체금액: {}, 출금계좌: {}", 
-            savingsAccount.getAccountNumber(), 
-            savingsAccount.getMonthlyTransferAmount(),
-            savingsAccount.getWithdrawalAccountNumber());
 
         // 계좌 상태 확인
         if (!savingsAccount.getIsActive() || 
@@ -131,9 +115,6 @@ public class AutoTransferSchedulerService {
         }
     }
 
-    /**
-     * 수동으로 특정 날짜의 자동이체 실행 (테스트용)
-     */
     @Transactional
     public void processAutoTransfersForDate(LocalDate date) {
         int day = date.getDayOfMonth();
