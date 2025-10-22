@@ -167,6 +167,8 @@ public class BankIntegrationService {
                         .amount(new BigDecimal(loan.getLoanAmount()))
                         .remainingAmount(new BigDecimal(loan.getRemainingAmount()))
                         .interestRate(loan.getInterestRate())
+                        .baseRate(loan.getBaseRate())
+                        .preferentialRate(loan.getPreferentialRate())
                         .monthlyPayment(new BigDecimal(loan.getMonthlyPayment()))
                         .startDate(loan.getStartDate().atStartOfDay())
                         .maturityDate(loan.getMaturityDate().atStartOfDay())
